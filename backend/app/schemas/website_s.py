@@ -2,6 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, HttpUrl
+from pydantic import ConfigDict  
 
 class WebsiteBase(BaseModel):
     name: str
@@ -17,5 +18,11 @@ class WebsiteRead(WebsiteBase):
     id: UUID
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)  
+
+class WebsiteListResponse(BaseModel):
+    total: int
+    items: List[WebsiteRead]
+
+class WebsiteSearchRequest(BaseModel):
+    query: str

@@ -23,5 +23,5 @@ class Website(Base):
     tags = Column(ARRAY(Text), default=[])
     screenshot_url = Column(Text, nullable=True)
     # DeepSeek embedding (768 dims)
-    embedding = Column(Vector(768), nullable=True)  
+    embedding = Column(Vector(384), nullable=True)  
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
