@@ -19,66 +19,77 @@ from app.crud.website_c import search_websites_by_embedding
 
 router = APIRouter(prefix="/api/v1/websites")
 
-# BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
-
-# @router.post("/search-web", response_model=list[WebsiteRead])
-# async def search_web(query: str = Body(...)):
-#     headers = {"Accept": "application/json"}
-#     params = {
-#         "q": query,
-#         "count": 10,
-#         "key": BRAVE_API_KEY
-#     }
-
-#     async with httpx.AsyncClient() as client:
-#         response = await client.get("https://api.search.brave.com/res/v1/web/search", params=params, headers=headers)
-
-#     if response.status_code != 200:
-#         raise HTTPException(status_code=500, detail="Failed to fetch results from Brave")
-
-#     brave_data = response.json()
-
-#     # Map Brave results to WebsiteRead-like format (fake UUIDs)
-#     results = []
-#     from uuid import uuid4
-#     for item in brave_data.get("web", {}).get("results", []):
-#         results.append({
-#             "id": str(uuid4()),
-#             "name": item["title"],
-#             "url": item["url"],
-#             "description": item.get("description", ""),
-#             "tags": [],
-#             "screenshot_url": None,
-#             "created_at": datetime.utcnow().isoformat()
-#         })
-
-#     return results
-
-@router.post(
-        "/", 
-        response_model=WebsiteRead,
-        status_code=status.HTTP_201_CREATED
-        )
-async def create_website(
-    website_data: WebsiteCreate, 
-    db: AsyncSession = Depends(get_db)
-    ):
-    # Check for duplicates by URL
-    result = await db.execute(
-                        select(Website).where(Website.url == str(website_data.url))
-                        )
-    existing = result.scalar_one_or_none()
-    if existing:
-        raise HTTPException(status_code=400, detail="Website already exists.")
+# @router.post(
+#         "/", 
+#         response_model=WebsiteRead,
+#         status_code=status.HTTP_201_CREATED
+#         )
+# async def create_website(
+#     website_data: WebsiteCreate, 
+#     db: AsyncSession = Depends(get_db)
+#     ):
+#     # Check for duplicates by URL
+#     result = await db.execute(
+#                         select(Website).where(Website.url == str(website_data.url))
+#                         )
+#     existing = result.scalar_one_or_none()
+#     if existing:
+#         raise HTTPException(status_code=400, detail="Website already exists.")
     
 
-    combined_text = f"\
-            {website_data.name} - \
-            {website_data.description} - \
-            {', '.join(website_data.tags)}"
+#     combined_text = f"\
+#             {website_data.name} - \
+#             {website_data.description} - \
+#             {', '.join(website_data.tags)}"
+#     embedding = await get_embedding(combined_text)
+
+
+#     new_website = Website(
+#         id=uuid.uuid4(),
+#         name=website_data.name,
+#         url=str(website_data.url),
+#         description=website_data.description,
+#         tags=website_data.tags,
+#         screenshot_url=website_data.screenshot_url,
+#         embedding=embedding
+#     )
+
+#     db.add(new_website)
+#     await db.commit()
+#     await db.refresh(new_website)
+
+#     return new_website
+
+@router.post(
+    "/", 
+    response_model=WebsiteRead,
+    status_code=status.HTTP_201_CREATED
+)
+async def create_or_update_website(
+    website_data: WebsiteCreate, 
+    db: AsyncSession = Depends(get_db)
+):
+    # Check for existing website by URL
+    result = await db.execute(select(Website).where(Website.url == str(website_data.url)))
+    existing = result.scalar_one_or_none()
+
+    # Generate embedding for updated/new data
+    combined_text = f"{website_data.name} - {website_data.description} - {', '.join(website_data.tags)}"
     embedding = await get_embedding(combined_text)
 
+    if existing:
+        # Update existing website
+        existing.name = website_data.name
+        existing.description = website_data.description
+        existing.tags = website_data.tags
+        existing.screenshot_url = website_data.screenshot_url
+        existing.embedding = embedding
 
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+
+    # Create new website
     new_website = Website(
         id=uuid.uuid4(),
         name=website_data.name,
